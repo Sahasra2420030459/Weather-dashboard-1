@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard Pro - Lightning Tracker Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; margin-bottom: 20px; padding: 20px 0; }
+        header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        header p { color: #94a3b8; font-size: 0.95rem; }
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 18px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 25px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+        }
+        input::placeholder { color: #94a3b8; }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            background: #3b82f6;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover { background: #2563eb; transform: translateY(-2px); }
+        .voice-btn {
+            background: #8b5cf6;
+            font-size: 1.1rem;
+            padding: 10px 14px;
+        }
+        .voice-btn:hover { background: #7c3aed; }
+        .voice-btn.listening {
+            background: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+        }
+        .error {
+            background: rgba(239,68,68,0.15);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+            text-align: center;
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+        }
+        .loading { text-align: center; padding: 40px; display: none; }
+        .loading.show, .error.show { display: block; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .weather-content { display: none; }
+        .weather-content.show { display: block; animation: fadeIn 0.6s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tabs-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .tabs-container::-webkit-scrollbar { display: none; }
+        .tabs {
+            display: flex;
+            gap: 6px;
+            min-width: max-content;
+        }
+        .tab {
+            padding: 10px 18px;
+            border-radius: 12px;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+        .tab::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 12px;
+            z-index: -1;
+        }
+        .tab:hover { color: #e2e8f0; transform: translateY(-2px); }
+        .tab.active {
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+        .tab.active::before { opacity: 1; }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+        .tab-content.active { display: block; }
+        .card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .weather-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+        .weather-left { text-align: center; }
+        .big-icon { font-size: 4rem; margin-bottom: 10px; }
+        .big-temp { font-size: 3rem; font-weight: bold; }
+        .desc { font-size: 1.1rem; color: #e2e8f0; margin-top: 5px; }
+        .weather-right {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .detail-box {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .detail-box span { font-size: 1.3rem; }
+        .detail-box p:first-of-type { color: #94a3b8; font-size: 0.8rem; margin: 4px 0; }
+        .detail-box p:last-child { font-size: 1rem; font-weight: bold; }
+        .outfit-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .outfit-icon { font-size: 3rem; margin-bottom: 10px; }
+        .outfit-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 5px; }
+        .outfit-desc { color: #94a3b8; font-size: 0.9rem; }
+        .outfit-items {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .outfit-item {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .best-time-grid, .photo-times, .sports-grid, .power-tips, .agri-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .best-time-card, .photo-card, .sport-card, .power-card, .agri-card, .driving-detail {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        .sport-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+        .best-time-card .icon, .photo-card .icon, .sport-card .icon, .power-card .icon, .agri-card .icon { font-size: 2rem; margin-bottom: 8px; }
+        .best-time-card .title, .sport-card .name, .power-card .title, .agri-card .title { font-weight: 600; margin-bottom: 5px; }
+        .best-time-card .time { color: #fbbf24; font-size: 1.1rem; }
+        .rating {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+        .rating-excellent { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .rating-good { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .rating-fair { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .rating-poor { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+        .status-excellent { color: #10b981; }
+        .status-good { color: #60a5fa; }
+        .status-fair { color: #fbbf24; }
+        .status-poor { color: #ef4444; }
+        .driving-score {
+            text-align: center;
+            padding: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            margin-bottom: 15px;
+        }
+        .score-circle {
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(#10b981 var(--score), rgba(255,255,255,0.1) 0);
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            background: #1e293b;
+        }
+        .score-value {
+            position: relative;
+            font-size: 2rem;
+            font-weight: bold;
+            z-index: 1;
+        }
+        .driving-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .chat-messages {
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+        .chat-message {
+            padding: 10px 15px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            max-width: 85%;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .chat-message.user {
+            background: #3b82f6;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .chat-message.bot {
+            background: rgba(255,255,255,0.1);
+            color: #e2e8f0;
+            border-bottom-left-radius: 5px;
+        }
+        .chat-input-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-input-wrapper input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            color: white;
+            outline: none;
+            font-size: 0.9rem;
+        }
+        .chat-input-wrapper input::placeholder { color: #94a3b8; }
+        .chat-send-btn {
+            padding: 10px 18px;
+            border-radius: 20px;
+            background: #10b981;
+        }
+        .chat-voice-btn {
+            padding: 10px 14px;
+            border-radius: 20px;
+            background: #8b5cf6;
+        }
+        .suggested-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .suggested-question {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .suggested-question:hover {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .alert-banner {
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideDown 0.4s ease-out;
+            font-size: 0.9rem;
+        }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .alert-thunderstorm { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #c4b5fd; }
+        .alert-heatwave { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+        .alert-heavyrain { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+        .alert-strongwind { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+        .hourly { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; }
+        .hour-item {
+            flex: 0 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 70px;
+        }
+        .hour-item .time { font-size: 0.8rem; color: #94a3b8; }
+        .hour-item .icon { font-size: 1.8rem; margin: 4px 0; }
+        .hour-item .temp { font-weight: bold; font-size: 0.95rem; }
+        .daily-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .daily-item:last-child { border-bottom: none; }
+        .daily-day { font-weight: 600; min-width: 60px; font-size: 0.9rem; }
+        .daily-icon { font-size: 1.5rem; }
+        .daily-temps { display: flex; gap: 8px; font-size: 0.9rem; }
+        .daily-low { color: #60a5fa; }
+        .daily-high { color: #fbbf24; font-weight: 600; }
+        .chart-container { height: 180px; margin: 10px 0; }
+        .voice-status {
+            text-align: center;
+            padding: 8px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .voice-status.show { display: block; }
+
+        /* ===== LIGHTNING TRACKER STYLES ===== */
+        .lightning-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .lightning-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .lightning-status.active {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            animation: pulse-red 2s infinite;
+        }
+        .lightning-status.safe {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .lightning-status.caution {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        }
+        .lightning-radar {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.95) 100%);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .radar-grid {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+        }
+        .radar-ring {
+            position: absolute;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .radar-ring.r1 { width: 60px; height: 60px; }
+        .radar-ring.r2 { width: 120px; height: 120px; }
+        .radar-ring.r3 { width: 180px; height: 180px; }
+        .radar-ring.r4 { width: 240px; height: 240px; }
+        .radar-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px; height: 12px;
+            background: #3b82f6;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            z-index: 10;
+        }
+        .radar-center::after {
+            content: 'YOU';
+            position: absolute;
+            top: 18px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.6rem;
+            color: #3b82f6;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .radar-sweep {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 140px; height: 140px;
+            transform-origin: 0 0;
+            background: conic-gradient(from 0deg, transparent 0deg, rgba(59, 130, 246, 0.15) 60deg, transparent 60deg);
+            border-radius: 0 140px 0 0;
+            animation: radar-sweep 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes radar-sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .lightning-strike {
+            position: absolute;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: strike-flash 1.5s ease-out forwards;
+            z-index: 5;
+        }
+        .lightning-strike.cloud-ground {
+            background: #fbbf24;
+            box-shadow: 0 0 10px #fbbf24, 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+        .lightning-strike.cloud-cloud {
+            background: #60a5fa;
+            box-shadow: 0 0 10px #60a5fa, 0 0 20px rgba(96, 165, 250, 0.5);
+        }
+        .lightning-strike.intense {
+            background: #ef4444;
+            box-shadow: 0 0 15px #ef4444, 0 0 30px rgba(239, 68, 68, 0.6);
+            width: 10px; height: 10px;
+        }
+        @keyframes strike-flash {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+        }
+        .strike-tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 20;
+            transform: translate(-50%, -120%);
+        }
+        .lightning-strike:hover .strike-tooltip { opacity: 1; }
+        .lightning-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .lightning-stat {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .lightning-stat .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .lightning-stat .label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .lightning-stat .sub {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .strikes-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .strike-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.2s;
+        }
+        .strike-item:hover { background: rgba(255,255,255,0.03); }
+        .strike-item:last-child { border-bottom: none; }
+        .strike-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .strike-dot.cg { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+        .strike-dot.cc { background: #60a5fa; box-shadow: 0 0 8px #60a5fa; }
+        .strike-info { flex: 1; }
+        .strike-distance { font-weight: 600; font-size: 0.95rem; }
+        .strike-time { font-size: 0.8rem; color: #94a3b8; }
+        .strike-intensity { font-size: 0.8rem; font-weight: 500; }
+        .strike-intensity.high { color: #ef4444; }
+        .strike-intensity.medium { color: #fbbf24; }
+        .strike-intensity.low { color: #60a5fa; }
+        .storm-tracker {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .storm-cell {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+            transition: all 0.3s;
+        }
+        .storm-cell:hover { background: rgba(255,255,255,0.06); transform: translateX(5px); }
+        .storm-cell.approaching { border-left-color: #ef4444; }
+        .storm-cell.nearby { border-left-color: #fbbf24; }
+        .storm-cell.distant { border-left-color: #60a5fa; }
+        .storm-icon { font-size: 2rem; }
+        .storm-details { flex: 1; }
+        .storm-name { font-weight: 600; font-size: 0.95rem; }
+        .storm-meta { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+        .storm-direction {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .direction-arrow {
+            width: 24px; height: 24px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+        }
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: live-pulse 1.5s infinite;
+        }
+        @keyframes live-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .lightning-legend {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+        }
+        .api-note {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #93c5fd;
+        }
+        .api-note code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        @media (max-width: 768px) {
+            .weather-main, .best-time-grid, .photo-times, .sports-grid, .power-tips, .agri-grid, .driving-details, .lightning-stats { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.6rem; }
+            .tab { padding: 8px 14px; font-size: 0.8rem; }
+            .lightning-radar { height: 250px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Weather Dashboard Pro</h1>
+            <p>Complete Weather Intelligence Platform</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="Search for a city...">
+            <button onclick="searchWeather()">Search</button>
+            <button class="voice-btn" id="voiceBtn" onclick="startVoiceSearch()" title="Voice search">🎤</button>
+            <button onclick="getMyLocation()">📍 My Location</button>
+        </div>
+
+        <div id="voiceStatus" class="voice-status">🎙️ Listening... Speak now</div>
+        <div id="errorMessage" class="error"></div>
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading weather data...</p>
+        </div>
+
+        <div id="weatherContent" style="display:none;">
+            <div class="card" style="text-align:center; padding:15px;">
+                <h2 id="cityName" style="font-size:1.5rem; margin-bottom:5px;">--</h2>
+                <p id="currentDate" style="color:#94a3b8; font-size:0.9rem;">--</p>
+            </div>
+
+            <div id="alerts"></div>
+
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('overview', this)">📊 Overview</button>
+                    <button class="tab" onclick="switchTab('outfit', this)">👔 Outfit</button>
+                    <button class="tab" onclick="switchTab('activities', this)">🏃 Activities</button>
+                    <button class="tab" onclick="switchTab('photography', this)">📸 Photography</button>
+                    <button class="tab" onclick="switchTab('sports', this)">🏏 Sports</button>
+                    <button class="tab" onclick="switchTab('driving', this)">🚗 Driving</button>
+                    <button class="tab" onclick="switchTab('power', this)">⚡ Power</button>
+                    <button class="tab" onclick="switchTab('agriculture', this)">🌾 Agriculture</button>
+                    <button class="tab" onclick="switchTab('lightning', this)">⚡ Lightning</button>
+                    <button class="tab" onclick="switchTab('ai', this)">🤖 AI Assistant</button>
+                </div>
+            </div>
+
+            <div id="tab-overview" class="tab-content active">
+                <div class="card">
+                    <div class="weather-main">
+                        <div class="weather-left">
+                            <div id="weatherIcon" class="big-icon">☀️</div>
+                            <div id="temperature" class="big-temp">--°C</div>
+                            <div id="weatherDesc" class="desc">--</div>
+                        </div>
+                        <div class="weather-right">
+                            <div class="detail-box"><span>💨</span><p>Wind</p><p id="windSpeed">--</p></div>
+                            <div class="detail-box"><span>💧</span><p>Humidity</p><p id="humidity">--</p></div>
+                            <div class="detail-box"><span>🌡️</span><p>Feels Like</p><p id="feelsLike">--</p></div>
+                            <div class="detail-box"><span>🔽</span><p>Pressure</p><p id="pressure">--</p></div>
+                            <div class="detail-box"><span>☀️</span><p>UV Index</p><p id="uvIndex">--</p></div>
+                            <div class="detail-box"><span>👁️</span><p>Visibility</p><p id="visibility">--</p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🌬️ Air Quality</h3>
+                    <div style="text-align:center; padding:20px;">
+                        <div id="aqiValue" style="font-size:2.5rem; font-weight:bold; color:#10b981;">--</div>
+                        <div id="aqiLabel" style="color:#94a3b8; margin-top:5px;">--</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>📈 Weather Analytics</h3>
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+                        <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                        <div class="chart-container"><canvas id="humidityChart"></canvas></div>
+                        <div class="chart-container"><canvas id="windChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>⏰ Hourly Forecast</h3>
+                    <div id="hourlyForecast" class="hourly"></div>
+                </div>
+                <div class="card">
+                    <h3>📅 7-Day Forecast</h3>
+                    <div id="dailyForecast"></div>
+                </div>
+            </div>
+
+            <div id="tab-outfit" class="tab-content">
+                <div class="card">
+                    <h3>👔 Weather-Based Outfit Recommendation</h3>
+                    <div id="outfitRecommendation"></div>
+                </div>
+            </div>
+
+            <div id="tab-activities" class="tab-content">
+                <div class="card">
+                    <h3>🏃 Best Time to Go Outside</h3>
+                    <div id="bestTimes" class="best-time-grid"></div>
+                </div>
+            </div>
+
+            <div id="tab-photography" class="tab-content">
+                <div class="card">
+                    <h3>📸 Golden Hour & Photography Mode</h3>
+                    <div id="photoTimes" class="photo-times"></div>
+                </div>
+            </div>
+
+            <div id="tab-sports" class="tab-content">
+                <div class="card">
+                    <h3>🏏 Sports Weather Assistant</h3>
+                    <div id="sportsWeather" class="sports-grid"></div>
+                </div>
+            </div>
+
+            <div id="tab-driving" class="tab-content">
+                <div class="card">
+                    <h3>🚗 Driving Conditions</h3>
+                    <div id="drivingConditions"></div>
+                </div>
+            </div>
+
+            <div id="tab-power" class="tab-content">
+                <div class="card">
+                    <h3>⚡ Power Consumption Forecast</h3>
+                    <div id="powerTips" class="power-tips"></div>
+                </div>
+            </div>
+
+            <div id="tab-agriculture" class="tab-content">
+                <div class="card">
+                    <h3>🌾 Agriculture Dashboard</h3>
+                    <div id="agricultureData" class="agri-grid"></div>
+                </div>
+            </div>
+
+            <!-- ===== LIGHTNING TRACKER TAB ===== -->
+            <div id="tab-lightning" class="tab-content">
+                <div class="card">
+                    <div class="lightning-header">
+                        <h3>⚡ Lightning Tracker</h3>
+                        <div id="lightningStatus" class="lightning-status safe">
+                            <span class="live-dot"></span> No Storms Detected
+                        </div>
+                    </div>
+                    
+                    <div class="lightning-radar" id="lightningRadar">
+                        <div class="radar-grid">
+                            <div class="radar-ring r1"></div>
+                            <div class="radar-ring r2"></div>
+                            <div class="radar-ring r3"></div>
+                            <div class="radar-ring r4"></div>
+                        </div>
+                        <div class="radar-center"></div>
+                        <div class="radar-sweep"></div>
+                        <div id="strikesContainer"></div>
+                    </div>
+                    
+                    <div class="lightning-legend">
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#fbbf24; box-shadow:0 0 8px #fbbf24;"></div>
+                            <span>Cloud-to-Ground</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#60a5fa; box-shadow:0 0 8px #60a5fa;"></div>
+                            <span>Cloud-to-Cloud</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#ef4444; box-shadow:0 0 8px #ef4444;"></div>
+                            <span>Intense Strike</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📊 Lightning Statistics</h3>
+                    <div class="lightning-stats" id="lightningStats">
+                        <div class="lightning-stat">
+                            <div class="value" style="color:#fbbf24;" id="statStrikes">0</div>
+                            <div class="label">Strikes (1h)</div>
+                            <div class="sub" id="statStrikesSub">No activity</div>
+                        </div>
+                        <div class="lightning-stat">
+                            <div class="value" style="color:#ef4444;" id="statClosest">--</div>
+                            <div class="label">Closest Strike</div>
+                            <div class="sub" id="statClosestSub">-- km away</div>
+                        </div>
+                        <div class="lightning-stat">
+                            <div class="value" style="color:#60a5fa;" id="statIntensity">--</div>
+                            <div class="label">Peak Intensity</div>
+                            <div class="sub" id="statIntensitySub">-- kA</div>
+                        </div>
+                        <div class="lightning-stat">
+                            <div class="value" style="color:#8b5cf6;" id="statTrend">--</div>
+                            <div class="label">Storm Trend</div>
+                            <div class="sub" id="statTrendSub">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🌩️ Storm Movement Tracker</h3>
+                    <div id="stormTracker"></div>
+                    <div class="live-indicator" id="stormLiveIndicator">
+                        <div class="live-dot"></div>
+                        <span>Live tracking active • Updates every 30 seconds</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>⚡ Recent Strikes</h3>
+                    <div class="strikes-list" id="strikesList"></div>
+                </div>
+
+                <div class="api-note">
+                    <strong>💡 Developer Note:</strong> This demo uses simulated lightning data. To integrate real-time lightning strikes, you can use:
+                    <br>• <strong>Weatherbit Lightning API</strong> — <code>https://api.weatherbit.io/v2.0/current/lightning</code> (requires API key)
+                    <br>• <strong>Blitzortung</strong> — Community network (non-commercial use only)
+                    <br>• <strong>Meteomatics</strong> — <code>lightning_strikes_10km_1h</code> parameter
+                </div>
+            </div>
+
+            <div id="tab-ai" class="tab-content">
+                <div class="card">
+                    <h3>🤖 AI Weather Assistant</h3>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-message bot">Hello! I am your AI Weather Assistant. Ask me anything about the weather!</div>
+                    </div>
+                    <div class="chat-input-wrapper">
+                        <input type="text" id="chatInput" placeholder="Ask about weather...">
+                        <button class="chat-voice-btn" id="chatVoiceBtn" onclick="startChatVoice()">🎤</button>
+                        <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+                    </div>
+                    <div class="suggested-questions">
+                        <span class="suggested-question" onclick="askQuestion('Will it rain tomorrow?')">Will it rain tomorrow?</span>
+                        <span class="suggested-question" onclick="askQuestion('What should I wear today?')">What should I wear today?</span>
+                        <span class="suggested-question" onclick="askQuestion('Is it safe to drive?')">Is it safe to drive?</span>
+                        <span class="suggested-question" onclick="askQuestion('Best time for outdoor activities?')">Best time for outdoor activities?</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Weather codes mapping
+        const weatherCodes = {
+            0: { icon: '☀️', desc: 'Clear sky' },
+            1: { icon: '🌤️', desc: 'Mainly clear' },
+            2: { icon: '⛅', desc: 'Partly cloudy' },
+            3: { icon: '☁️', desc: 'Overcast' },
+            45: { icon: '🌫️', desc: 'Fog' },
+            51: { icon: '🌦️', desc: 'Drizzle' },
+            61: { icon: '🌧️', desc: 'Rain' },
+            71: { icon: '🌨️', desc: 'Snow' },
+            95: { icon: '⛈️', desc: 'Thunderstorm' }
+        };
+
+        let currentWeatherData = null;
+        let charts = {};
+        let chatRecognition = null;
+        let searchRecognition = null;
+        let lightningInterval = null;
+        let lightningStrikes = [];
+
+        // Tab switching
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+            btn.classList.add('active');
+            
+            // Start/stop lightning simulation based on tab
+            if (tabName === 'lightning') {
+                startLightningSimulation();
+            } else {
+                stopLightningSimulation();
+            }
+        }
+
+        // UI functions
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('weatherContent').style.display = 'none';
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+        }
+
+        function showError(msg) {
+            hideLoading();
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        function getDayName(dateStr) {
+            return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(dateStr).getDay()];
+        }
+
+        // Voice search
+        function initVoiceSearch() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                document.getElementById('voiceBtn').style.display = 'none';
+                document.getElementById('chatVoiceBtn').style.display = 'none';
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            searchRecognition = new SpeechRecognition();
+            searchRecognition.lang = 'en-US';
+            searchRecognition.continuous = false;
+            searchRecognition.interimResults = false;
+
+            searchRecognition.onstart = () => {
+                document.getElementById('voiceBtn').classList.add('listening');
+                document.getElementById('voiceStatus').classList.add('show');
+                document.getElementById('cityInput').placeholder = 'Listening...';
+            };
+
+            searchRecognition.onend = () => {
+                document.getElementById('voiceBtn').classList.remove('listening');
+                document.getElementById('voiceStatus').classList.remove('show');
+                document.getElementById('cityInput').placeholder = 'Search for a city...';
+            };
+
+            searchRecognition.onresult = (e) => {
+                const city = e.results[0][0].transcript.replace(/[.,!?]$/, '').trim();
+                document.getElementById('cityInput').value = city;
+                searchWeather();
+            };
+
+            searchRecognition.onerror = (e) => {
+                showError('Voice search failed: ' + e.error);
+            };
+
+            chatRecognition = new SpeechRecognition();
+            chatRecognition.lang = 'en-US';
+            chatRecognition.continuous = false;
+            chatRecognition.interimResults = false;
+
+            chatRecognition.onstart = () => {
+                document.getElementById('chatVoiceBtn').textContent = '🔴';
+                document.getElementById('chatInput').placeholder = 'Listening...';
+            };
+
+            chatRecognition.onend = () => {
+                document.getElementById('chatVoiceBtn').textContent = '🎤';
+                document.getElementById('chatInput').placeholder = 'Ask about weather...';
+            };
+
+            chatRecognition.onresult = (e) => {
+                const text = e.results[0][0].transcript.replace(/[.,!?]$/, '').trim();
+                document.getElementById('chatInput').value = text;
+                sendChatMessage();
+            };
+        }
+
+        function startVoiceSearch() {
+            if (searchRecognition) searchRecognition.start();
+        }
+
+        function startChatVoice() {
+            if (chatRecognition) chatRecognition.start();
+        }
+
+        // Outfit recommendation
+        function generateOutfitRecommendation(current, daily) {
+            const temp = current.temperature_2m;
+            const code = current.weather_code;
+            const wind = current.wind_speed_10m;
+            const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82];
+            const isRainy = rainCodes.includes(code);
+
+            let icon, title, desc, items;
+
+            if (temp >= 35) {
+                icon = '🥵'; title = 'Extreme Heat';
+                desc = 'It is ' + Math.round(temp) + '°C! Very hot weather.';
+                items = ['👕 Light cotton t-shirt', '🩳 Shorts or light pants', '🕶️ Sunglasses', '🧢 Hat or cap', '🧴 Sunscreen SPF 50+', '💧 Water bottle'];
+            } else if (temp >= 28) {
+                icon = '☀️'; title = 'Hot Weather';
+                desc = 'It is ' + Math.round(temp) + '°C. Warm and sunny.';
+                items = ['👕 Cotton t-shirt', '🩳 Shorts', '🕶️ Sunglasses', '🧴 Sunscreen'];
+            } else if (temp >= 20) {
+                icon = '🌤️'; title = 'Pleasant Weather';
+                desc = 'It is ' + Math.round(temp) + '°C. Comfortable temperature.';
+                items = ['👕 T-shirt', '👖 Jeans or chinos', '🧥 Light jacket (optional)'];
+            } else if (temp >= 15) {
+                icon = '🌥️'; title = 'Mild Weather';
+                desc = 'It is ' + Math.round(temp) + '°C. Slightly cool.';
+                items = ['👔 Long sleeve shirt', '🧥 Light jacket or sweater', '👖 Jeans'];
+            } else if (temp >= 10) {
+                icon = '🧥'; title = 'Cool Weather';
+                desc = 'It is ' + Math.round(temp) + '°C. Cool temperature.';
+                items = ['🧥 Jacket or sweater', '👖 Long pants', '🧣 Scarf (optional)'];
+            } else if (temp >= 5) {
+                icon = '🧣'; title = 'Cold Weather';
+                desc = 'It is ' + Math.round(temp) + '°C. Quite cold.';
+                items = ['🧥 Warm coat', '🧣 Scarf', '🧤 Gloves', '👖 Thick pants', '👢 Closed shoes'];
+            } else {
+                icon = '🥶'; title = 'Very Cold';
+                desc = 'It is ' + Math.round(temp) + '°C! Freezing temperature.';
+                items = ['🧥 Heavy winter coat', '🧣 Scarf', '🧤 Gloves', '🧢 Warm hat', '👖 Thermal pants', '👢 Warm boots'];
+            }
+
+            if (isRainy) {
+                items.push('☔ Umbrella');
+                items.push('🧥 Rain jacket');
+            }
+            if (wind >= 30) {
+                items.push('💨 Windproof jacket');
+            }
+
+            const itemsHtml = items.map(item => '<span class="outfit-item">' + item + '</span>').join('');
+
+            return '<div class="outfit-card"><div class="outfit-icon">' + icon + '</div><div class="outfit-title">' + title + '</div><div class="outfit-desc">' + desc + '</div><div class="outfit-items">' + itemsHtml + '</div></div>';
+        }
+
+        // Best times for activities
+        function generateBestTimes(current, daily, hourly) {
+            const temp = current.temperature_2m;
+            const code = current.weather_code;
+            const uv = current.uv_index || 0;
+            const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99];
+            const isRainy = rainCodes.includes(code);
+
+            const activities = [
+                { name: 'Jogging', icon: '🏃' },
+                { name: 'Cycling', icon: '🚴' },
+                { name: 'Walking', icon: '🚶' },
+                { name: 'Photography', icon: '📸' }
+            ];
+
+            activities.forEach(a => {
+                if (temp >= 35 || code >= 95) {
+                    a.bestTime = 'Early Morning (6-8 AM)';
+                    a.rating = 'fair';
+                } else if (isRainy) {
+                    a.bestTime = 'Wait for clear skies';
+                    a.rating = 'poor';
+                } else if (temp >= 15 && temp <= 28 && !isRainy) {
+                    a.bestTime = '6:00 AM - 9:00 AM';
+                    a.rating = 'excellent';
+                } else {
+                    a.bestTime = 'Check weather updates';
+                    a.rating = 'fair';
+                }
+            });
+
+            if (!isRainy) {
+                activities[3].bestTime = 'Golden Hour (Sunrise/Sunset)';
+                activities[3].rating = 'excellent';
+            }
+
+            return activities.map(a => '<div class="best-time-card"><div class="icon">' + a.icon + '</div><div class="title">' + a.name + '</div><div class="time">' + a.bestTime + '</div><span class="rating rating-' + a.rating + '">' + a.rating.toUpperCase() + '</span></div>').join('');
+        }
+
+        // Photography times
+        function generatePhotoTimes(daily) {
+            const sunrise = new Date(daily.sunrise[0]);
+            const sunset = new Date(daily.sunset[0]);
+
+            const goldenHourMorning = new Date(sunrise.getTime() - 30 * 60 * 1000);
+            const goldenHourMorningEnd = new Date(sunrise.getTime() + 60 * 60 * 1000);
+            const goldenHourEvening = new Date(sunset.getTime() - 60 * 60 * 1000);
+            const goldenHourEveningEnd = new Date(sunset.getTime() + 30 * 60 * 1000);
+
+            const blueHourMorning = new Date(sunrise.getTime() - 45 * 60 * 1000);
+            const blueHourMorningEnd = new Date(sunrise.getTime() - 15 * 60 * 1000);
+            const blueHourEvening = new Date(sunset.getTime() + 15 * 60 * 1000);
+            const blueHourEveningEnd = new Date(sunset.getTime() + 45 * 60 * 1000);
+
+            const formatTime = (d) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            return '<div class="photo-card"><div class="icon">🌅</div><div class="label">Sunrise</div><div class="time">' + formatTime(sunrise) + '</div></div>' +
+                '<div class="photo-card"><div class="icon">🌇</div><div class="label">Sunset</div><div class="time">' + formatTime(sunset) + '</div></div>' +
+                '<div class="photo-card"><div class="icon">✨</div><div class="label">Golden Hour Morning</div><div class="time">' + formatTime(goldenHourMorning) + ' - ' + formatTime(goldenHourMorningEnd) + '</div><div class="duration">Best for landscapes & portraits</div></div>' +
+                '<div class="photo-card"><div class="icon">🌆</div><div class="label">Golden Hour Evening</div><div class="time">' + formatTime(goldenHourEvening) + ' - ' + formatTime(goldenHourEveningEnd) + '</div><div class="duration">Best for cityscapes & silhouettes</div></div>' +
+                '<div class="photo-card"><div class="icon">💙</div><div class="label">Blue Hour Morning</div><div class="time">' + formatTime(blueHourMorning) + ' - ' + formatTime(blueHourMorningEnd) + '</div><div class="duration">Best for city lights & long exposure</div></div>' +
+                '<div class="photo-card"><div class="icon">💜</div><div class="label">Blue Hour Evening</div><div class="time">' + formatTime(blueHourEvening) + ' - ' + formatTime(blueHourEveningEnd) + '</div><div class="duration">Best for twilight photography</div></div>';
+        }
+
+        // Sports weather
+        function generateSportsWeather(current, daily) {
+            const temp = current.temperature_2m;
+            const code = current.weather_code;
+            const wind = current.wind_speed_10m;
+
+            const sports = [
+                { name: 'Cricket', icon: '🏏' },
+                { name: 'Football', icon: '⚽' },
+                { name: 'Running', icon: '🏃' },
+                { name: 'Cycling', icon: '🚴' }
+            ];
+
+            return sports.map(sport => {
+                let status, statusClass, message;
+
+                if (code >= 95) { status = 'Poor'; statusClass = 'status-poor'; message = 'Thunderstorm - unsafe for outdoor sports'; }
+                else if (code >= 61) { status = 'Fair'; statusClass = 'status-fair'; message = 'Rain may affect play'; }
+                else if (temp >= 40) { status = 'Poor'; statusClass = 'status-poor'; message = 'Extreme heat - high risk of heatstroke'; }
+                else if (temp >= 35 && sport.name === 'Cricket') { status = 'Fair'; statusClass = 'status-fair'; message = 'Hot conditions - frequent drink breaks needed'; }
+                else if (wind >= 40) { status = 'Fair'; statusClass = 'status-fair'; message = 'Strong winds may affect ball movement'; }
+                else if (temp >= 15 && temp <= 30 && code <= 3) { status = 'Excellent'; statusClass = 'status-excellent'; message = 'Perfect conditions for ' + sport.name.toLowerCase(); }
+                else { status = 'Good'; statusClass = 'status-good'; message = 'Acceptable conditions for play'; }
+
+                return '<div class="sport-card"><div class="icon">' + sport.icon + '</div><div class="name">' + sport.name + '</div><div class="status ' + statusClass + '">' + status + '</div><div style="color:#94a3b8; font-size:0.8rem; margin-top:5px;">' + message + '</div></div>';
+            }).join('');
+        }
+
+        // Driving conditions
+        function generateDrivingConditions(current, daily) {
+            const temp = current.temperature_2m;
+            const code = current.weather_code;
+            const wind = current.wind_speed_10m;
+            const visibility = current.weather_code >= 45 ? 'Poor' : current.weather_code >= 3 ? 'Moderate' : 'Good';
+
+            let score = 100;
+            let warnings = [];
+
+            if (code >= 95) { score -= 40; warnings.push('Thunderstorm - avoid driving'); }
+            else if (code >= 61) { score -= 25; warnings.push('Wet roads - reduce speed'); }
+            else if (code >= 45) { score -= 20; warnings.push('Fog - use fog lights'); }
+            if (wind >= 40) { score -= 15; warnings.push('Strong winds - grip wheel firmly'); }
+            if (temp <= 5) { score -= 10; warnings.push('Cold - possible ice on roads'); }
+
+            score = Math.max(0, score);
+            const scoreColor = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+
+            return '<div class="driving-score"><div class="score-circle" style="--score: ' + (score * 3.6) + 'deg;"><div class="score-value" style="color: ' + scoreColor + ';">' + score + '</div></div><div style="font-size:1.2rem; font-weight:600; margin-bottom:5px;">Driving Safety Score</div><div style="color:#94a3b8; font-size:0.9rem;">' + (score >= 80 ? 'Safe to drive' : score >= 60 ? 'Drive with caution' : 'Avoid driving if possible') + '</div></div><div class="driving-details"><div class="driving-detail"><div class="icon">👁️</div><div class="label">Visibility</div><div class="value">' + visibility + '</div></div><div class="driving-detail"><div class="icon">🌧️</div><div class="label">Road Condition</div><div class="value">' + (code >= 61 ? 'Wet' : code >= 45 ? 'Damp' : 'Dry') + '</div></div><div class="driving-detail"><div class="icon">⚠️</div><div class="label">Warnings</div><div class="value" style="font-size:0.8rem;">' + (warnings.length ? warnings.join(', ') : 'None') + '</div></div></div>';
+        }
+
+        // Power tips
+        function generatePowerTips(current, daily) {
+            const temp = current.temperature_2m;
+
+            let acTip, savingTip, estimate;
+
+            if (temp >= 35) {
+                acTip = 'AC needed 24/7. Set to 24°C for efficiency. Use ceiling fans to circulate air.';
+                savingTip = 'Close curtains during day. Use reflective window film. Unplug unused devices.';
+                estimate = 'High consumption: 8-12 kWh/day expected';
+            } else if (temp >= 28) {
+                acTip = 'AC recommended during peak heat (12-4 PM). Set to 25°C. Use timer function.';
+                savingTip = 'Use natural ventilation in morning/evening. LED bulbs save 75% energy.';
+                estimate = 'Moderate consumption: 5-8 kWh/day expected';
+            } else if (temp >= 20) {
+                acTip = 'AC may not be needed. Use fans for comfort. Open windows for cross-ventilation.';
+                savingTip = 'Optimal weather for natural cooling. Turn off AC, enjoy fresh air!';
+                estimate = 'Low consumption: 3-5 kWh/day expected';
+            } else if (temp >= 10) {
+                acTip = 'No AC needed. Consider light heating at night if temperature drops further.';
+                savingTip = 'Perfect weather - minimal heating/cooling needed. Maximum energy savings!';
+                estimate = 'Very low: 2-4 kWh/day expected';
+            } else {
+                acTip = 'Heating required. Use room heaters efficiently. Set thermostat to 20°C.';
+                savingTip = 'Seal window gaps. Use thermal curtains. Wear warm clothes indoors.';
+                estimate = 'Moderate-High: 6-10 kWh/day for heating';
+            }
+
+            return '<div class="power-card"><div class="icon">❄️</div><div class="title">AC Usage Recommendation</div><div class="tip">' + acTip + '</div></div>' +
+                '<div class="power-card"><div class="icon">💡</div><div class="title">Energy Saving Tips</div><div class="tip">' + savingTip + '</div></div>' +
+                '<div class="power-card"><div class="icon">📊</div><div class="title">Estimated Consumption</div><div class="tip">' + estimate + '</div></div>' +
+                '<div class="power-card"><div class="icon">🌱</div><div class="title">Eco-Friendly Tip</div><div class="tip">Use solar panels during sunny hours. Peak generation: 10 AM - 3 PM.</div></div>';
+        }
+
+        // Agriculture data
+        function generateAgricultureData(current, daily, hourly) {
+            const temp = current.temperature_2m;
+            const humidity = current.relative_humidity_2m;
+            const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82];
+            const weeklyRain = daily.weather_code.filter(c => rainCodes.includes(c)).length;
+            const soilMoisture = Math.min(100, Math.round(humidity * 0.7 + (weeklyRain / 7) * 30));
+
+            let crops = [];
+            if (temp >= 25 && temp <= 35 && humidity >= 40 && humidity <= 70) {
+                crops = ['Rice', 'Cotton', 'Sugarcane', 'Maize'];
+            } else if (temp >= 20 && temp <= 30) {
+                crops = ['Wheat', 'Barley', 'Vegetables', 'Pulses'];
+            } else if (temp >= 15 && temp <= 25) {
+                crops = ['Potato', 'Onion', 'Mustard', 'Peas'];
+            } else {
+                crops = ['Leafy Greens', 'Radish', 'Carrot'];
+            }
+
+            let irrigationAlert = '';
+            if (soilMoisture < 30) irrigationAlert = '⚠️ URGENT: Soil moisture critical. Irrigate immediately!';
+            else if (soilMoisture < 50) irrigationAlert = '⚡ Schedule irrigation within 2-3 days';
+            else if (weeklyRain >= 3) irrigationAlert = '✅ Rainfall sufficient. Delay irrigation.';
+            else irrigationAlert = '✅ Soil moisture adequate. Monitor regularly.';
+
+            return '<div class="agri-card"><div class="icon">💧</div><div class="title">Soil Moisture</div><div class="value">' + soilMoisture + '%</div><div class="desc">' + (soilMoisture > 60 ? 'Well hydrated' : soilMoisture > 40 ? 'Moderate - monitor' : 'Low - irrigation needed') + '</div></div>' +
+                '<div class="agri-card"><div class="icon">🌧️</div><div class="title">Rain Forecast (7 Days)</div><div class="value">' + weeklyRain + ' days</div><div class="desc">' + (weeklyRain >= 4 ? 'Good rainfall expected' : weeklyRain >= 2 ? 'Moderate rain' : 'Minimal rain - plan irrigation') + '</div></div>' +
+                '<div class="agri-card"><div class="icon">🌾</div><div class="title">Recommended Crops</div><div class="value">' + crops.join(', ') + '</div><div class="desc">Based on current temperature ' + Math.round(temp) + '°C and humidity ' + humidity + '%</div></div>' +
+                '<div class="agri-card"><div class="icon">⚠️</div><div class="title">Irrigation Alert</div><div class="value" style="font-size:1rem;">' + irrigationAlert + '</div><div class="desc">Check soil moisture daily during hot weather</div></div>';
+        }
+
+        // AI Chatbot
+        function addChatMessage(text, isUser) {
+            const container = document.getElementById('chatMessages');
+            const msg = document.createElement('div');
+            msg.className = 'chat-message ' + (isUser ? 'user' : 'bot');
+            msg.textContent = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping() {
+            const container = document.getElementById('chatMessages');
+            const typing = document.createElement('div');
+            typing.className = 'chat-message bot typing';
+            typing.id = 'typingIndicator';
+            typing.textContent = 'Thinking';
+            container.appendChild(typing);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typingIndicator');
+            if (typing) typing.remove();
+        }
+
+        function askQuestion(question) {
+            document.getElementById('chatInput').value = question;
+            sendChatMessage();
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addChatMessage(text, true);
+            input.value = '';
+            showTyping();
+
+            setTimeout(() => {
+                hideTyping();
+                const response = generateAIResponse(text);
+                addChatMessage(response);
+                speakText(response);
+            }, 1500);
+        }
+
+        function generateAIResponse(question) {
+            if (!currentWeatherData) return "Please search for a city first to get weather information!";
+
+            const current = currentWeatherData.current;
+            const daily = currentWeatherData.daily;
+            const city = currentWeatherData.cityName;
+            const temp = Math.round(current.temperature_2m);
+            const condition = weatherCodes[current.weather_code]?.desc || 'Clear';
+            const humidity = current.relative_humidity_2m;
+            const wind = current.wind_speed_10m;
+            const maxTemp = Math.round(daily.temperature_2m_max[1] || daily.temperature_2m_max[0]);
+            const minTemp = Math.round(daily.temperature_2m_min[1] || daily.temperature_2m_min[0]);
+
+            const q = question.toLowerCase();
+
+            if (q.includes('rain') || q.includes('wet') || q.includes('umbrella')) {
+                const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82];
+                const tomorrowCode = daily.weather_code[1] || current.weather_code;
+                const rainProb = currentWeatherData.hourly.precipitation_probability ? Math.max(...currentWeatherData.hourly.precipitation_probability.slice(0, 24)) : 0;
+
+                if (rainCodes.includes(tomorrowCode) || rainProb > 50) {
+                    return 'Yes, there is a ' + rainProb + '% chance of rain in ' + city + ' tomorrow. Do not forget your umbrella! The high will be ' + maxTemp + '°C with ' + condition.toLowerCase() + '.';
+                } else if (rainProb > 20) {
+                    return 'There is a slight chance (' + rainProb + '%) of rain tomorrow in ' + city + '. You might want to carry a light jacket just in case.';
+                } else {
+                    return 'No rain expected in ' + city + ' tomorrow! It is going to be ' + condition.toLowerCase() + ' with a high of ' + maxTemp + '°C. Perfect weather!';
+                }
+            }
+
+            if (q.includes('wear') || q.includes('clothes') || q.includes('dress') || q.includes('outfit')) {
+                if (temp >= 35) return 'It is very hot (' + temp + '°C) in ' + city + '! Wear light, breathable cotton clothes, sunglasses, and a hat. Do not forget sunscreen!';
+                else if (temp >= 25) return 'It is warm (' + temp + '°C) in ' + city + '. T-shirt and light pants or shorts would be perfect. Comfortable shoes for walking!';
+                else if (temp >= 15) return 'It is mild (' + temp + '°C) in ' + city + '. A light jacket or sweater with jeans would be ideal. Layer up!';
+                else if (temp >= 5) return 'It is cool (' + temp + '°C) in ' + city + '. Wear a warm jacket, sweater, and closed shoes. A scarf might help!';
+                else return 'It is cold (' + temp + '°C) in ' + city + '! Bundle up with a heavy coat, gloves, and warm boots. Stay cozy!';
+            }
+
+            if (q.includes('drive') || q.includes('car') || q.includes('road') || q.includes('travel')) {
+                if (current.weather_code >= 95) return 'Avoid driving in ' + city + ' if possible! Thunderstorm conditions with ' + wind + ' km/h winds make roads hazardous. If you must drive, go slow and keep headlights on.';
+                else if (current.weather_code >= 71) return 'Snow in ' + city + ' means slippery roads. Drive very carefully, keep distance from other vehicles, and consider snow tires if available.';
+                else if (current.weather_code >= 61) return 'Wet roads in ' + city + ' due to rain. Drive cautiously, reduce speed, and maintain safe following distance. Wipers on!';
+                else if (wind >= 40) return 'Strong winds (' + wind + ' km/h) in ' + city + '. Be careful with high-profile vehicles and watch for flying debris. Both hands on the wheel!';
+                else if (current.weather_code >= 45) return 'Foggy conditions in ' + city + '. Use fog lights, drive slowly, and keep extra distance. Visibility is reduced.';
+                else return 'Good driving conditions in ' + city + '! ' + condition + ' with ' + temp + '°C. Roads should be clear. Have a safe journey!';
+            }
+
+            if (q.includes('outdoor') || q.includes('activity') || q.includes('sport') || q.includes('exercise') || q.includes('walk') || q.includes('run')) {
+                if (current.weather_code >= 95) return 'Not ideal for outdoor activities in ' + city + ' right now. Thunderstorm risk - stay indoors and try a home workout instead!';
+                else if (temp >= 40) return 'Too hot (' + temp + '°C) for outdoor activities in ' + city + '! Risk of heatstroke. If you must exercise, do it early morning or evening, and hydrate constantly.';
+                else if (current.weather_code >= 61) return 'Rain in ' + city + ' - indoor activities recommended. Or embrace it with a rain jacket for a refreshing walk!';
+                else if (temp >= 15 && temp <= 30 && current.weather_code <= 3) return 'Perfect weather for outdoor activities in ' + city + '! ' + temp + '°C and ' + condition.toLowerCase() + '. Great for running, cycling, or a picnic!';
+                else return 'Conditions in ' + city + ' are ' + condition.toLowerCase() + ' with ' + temp + '°C. Light activities are fine, but check the forecast for the best time!';
+            }
+
+            if (q.includes('hot') || q.includes('cold') || q.includes('temperature') || q.includes('temp')) {
+                return 'Current temperature in ' + city + ' is ' + temp + '°C with ' + condition.toLowerCase() + '. It feels like ' + Math.round(current.apparent_temperature) + '°C. Tomorrow\'s range: ' + minTemp + '°C to ' + maxTemp + '°C.';
+            }
+
+            if (q.includes('uv') || q.includes('sun') || q.includes('sunscreen') || q.includes('burn')) {
+                const uv = current.uv_index || 0;
+                if (uv >= 8) return 'UV index is very high (' + uv + ') in ' + city + '! Apply SPF 50+ sunscreen, wear a hat and sunglasses. Avoid sun between 11 AM - 3 PM.';
+                else if (uv >= 5) return 'Moderate UV (' + uv + ') in ' + city + '. Use SPF 30 sunscreen and seek shade during peak hours. Sunglasses recommended!';
+                else return 'UV levels are low (' + uv + ') in ' + city + ' today. Basic sun protection is sufficient. Enjoy the outdoors!';
+            }
+
+            if (q.includes('wind')) {
+                return 'Wind speed in ' + city + ' is ' + wind + ' km/h. ' + (wind > 30 ? 'It is quite windy - secure loose items outdoors!' : 'Light breeze - pleasant conditions.');
+            }
+
+            if (q.includes('humid')) {
+                return 'Humidity in ' + city + ' is ' + humidity + '%. ' + (humidity > 70 ? 'It feels quite humid and sticky. Stay cool!' : humidity > 40 ? 'Comfortable humidity levels.' : 'Dry air - stay hydrated!');
+            }
+
+            if (q.includes('best time') || q.includes('when') || q.includes('good time')) {
+                return 'In ' + city + ', the best time for outdoor activities is usually early morning (6-9 AM) or evening (5-7 PM). Current conditions: ' + temp + '°C, ' + condition.toLowerCase() + '. Tomorrow morning looks ' + (weatherCodes[daily.weather_code[1]]?.desc.toLowerCase() || 'clear') + '!';
+            }
+
+            if (q.includes('air') || q.includes('pollution') || q.includes('breath') || q.includes('quality')) {
+                return 'Air quality in ' + city + ' is being monitored. Check the AQI card above for real-time data. If AQI is above 100, consider wearing a mask for outdoor activities.';
+            }
+
+            return 'In ' + city + ', it is currently ' + temp + '°C with ' + condition.toLowerCase() + '. Humidity is ' + humidity + '% and wind speed is ' + wind + ' km/h. Tomorrow will be ' + (weatherCodes[daily.weather_code[1]]?.desc.toLowerCase() || 'clear') + ' with a high of ' + maxTemp + '°C. What else would you like to know?';
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Charts
+        function createCharts(hourly) {
+            const labels = [];
+            const temps = [];
+            const humidity = [];
+            const wind = [];
+
+            for (let i = 0; i < 24; i += 3) {
+                const idx = new Date().getHours() + i;
+                if (idx >= hourly.time.length) break;
+                labels.push(new Date(hourly.time[idx]).getHours() + ':00');
+                temps.push(Math.round(hourly.temperature_2m[idx]));
+                humidity.push(hourly.relative_humidity_2m ? hourly.relative_humidity_2m[idx] : 60);
+                wind.push(hourly.wind_speed_10m ? hourly.wind_speed_10m[idx] : 10);
+            }
+
+            Object.values(charts).forEach(c => c?.destroy?.());
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                }
+            };
+
+            charts.temp = new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: { labels, datasets: [{ data: temps, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.4 }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'Temperature (C)', color: '#94a3b8' } } }
+            });
+
+            charts.humidity = new Chart(document.getElementById('humidityChart'), {
+                type: 'line',
+                data: { labels, datasets: [{ data: humidity, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4 }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'Humidity (%)', color: '#94a3b8' } }, scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, min: 0, max: 100 } } }
+            });
+
+            charts.wind = new Chart(document.getElementById('windChart'), {
+                type: 'bar',
+                data: { labels, datasets: [{ data: wind, backgroundColor: '#f59e0b', borderRadius: 6 }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'Wind (km/h)', color: '#94a3b8' } } }
+            });
+        }
+
+        // Alerts
+        function checkAlerts(current, daily) {
+            const alerts = [];
+            const code = current.weather_code;
+            const wind = current.wind_speed_10m;
+            const maxTemp = daily.temperature_2m_max[0];
+
+            if (code >= 95) alerts.push({ type: 'thunderstorm', icon: '⛈️', msg: 'Thunderstorm warning! Stay indoors.' });
+            else if (code >= 61) alerts.push({ type: 'heavyrain', icon: '🌧️', msg: 'Heavy rain expected. Carry umbrella.' });
+
+            if (wind >= 40) alerts.push({ type: 'strongwind', icon: '💨', msg: 'Strong winds: ' + Math.round(wind) + ' km/h' });
+            if (maxTemp >= 40) alerts.push({ type: 'heatwave', icon: '🌡️', msg: 'Extreme heat: ' + Math.round(maxTemp) + '°C. Stay hydrated!' });
+            else if (maxTemp >= 35) alerts.push({ type: 'heatwave', icon: '☀️', msg: 'Heat advisory: ' + Math.round(maxTemp) + '°C' });
+
+            const container = document.getElementById('alerts');
+            if (!alerts.length) { container.innerHTML = ''; return; }
+            container.innerHTML = alerts.map(a => '<div class="alert-banner alert-' + a.type + '"><span>' + a.icon + '</span><span>' + a.msg + '</span></div>').join('');
+        }
+
+        // ===== LIGHTNING TRACKER FUNCTIONS =====
+        
+        function generateLightningData() {
+            // Generate realistic lightning data based on weather conditions
+            const code = currentWeatherData?.current?.weather_code || 0;
+            const isStormy = code >= 95;
+            const isRainy = code >= 61;
+            
+            const strikes = [];
+            const numStrikes = isStormy ? Math.floor(Math.random() * 15) + 10 : isRainy ? Math.floor(Math.random() * 5) + 2 : Math.floor(Math.random() * 3);
+            
+            for (let i = 0; i < numStrikes; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * 50 + 2; // 2-52 km
+                const intensity = Math.random() * 100 + 20; // 20-120 kA
+                const type = Math.random() > 0.3 ? 'cloud-ground' : 'cloud-cloud';
+                const isIntense = intensity > 80;
+                
+                strikes.push({
+                    id: Date.now() + i,
+                    x: Math.cos(angle) * (distance / 50) * 120, // Normalize to radar pixels
+                    y: Math.sin(angle) * (distance / 50) * 120,
+                    distance: Math.round(distance),
+                    intensity: Math.round(intensity),
+                    type: type,
+                    isIntense: isIntense,
+                    time: new Date(Date.now() - Math.random() * 3600000) // Within last hour
+                });
+            }
+            
+            // Sort by time (newest first)
+            strikes.sort((a, b) => b.time - a.time);
+            return strikes;
+        }
+
+        function renderLightningRadar(strikes) {
+            const container = document.getElementById('strikesContainer');
+            container.innerHTML = '';
+            
+            strikes.forEach(strike => {
+                const el = document.createElement('div');
+                el.className = 'lightning-strike ' + strike.type + (strike.isIntense ? ' intense' : '');
+                el.style.left = 'calc(50% + ' + strike.x + 'px)';
+                el.style.top = 'calc(50% + ' + strike.y + 'px)';
+                
+                const tooltip = document.createElement('div');
+                tooltip.className = 'strike-tooltip';
+                tooltip.innerHTML = '<strong>' + strike.distance + ' km away</strong><br>' + 
+                    strike.intensity + ' kA • ' + strike.type.replace('-', '-to-') + '<br>' +
+                    strike.time.toLocaleTimeString();
+                el.appendChild(tooltip);
+                
+                container.appendChild(el);
+            });
+        }
+
+        function renderLightningStats(strikes) {
+            const totalStrikes = strikes.length;
+            const closest = strikes.length > 0 ? Math.min(...strikes.map(s => s.distance)) : null;
+            const peakIntensity = strikes.length > 0 ? Math.max(...strikes.map(s => s.intensity)) : null;
+            
+            // Calculate trend
+            const recentStrikes = strikes.filter(s => Date.now() - s.time < 600000); // Last 10 min
+            const olderStrikes = strikes.filter(s => Date.now() - s.time >= 600000 && Date.now() - s.time < 1800000); // 10-30 min ago
+            let trend = '--';
+            let trendColor = '#8b5cf6';
+            if (recentStrikes.length > olderStrikes.length * 1.5) {
+                trend = 'Increasing ⚠️';
+                trendColor = '#ef4444';
+            } else if (recentStrikes.length < olderStrikes.length * 0.5) {
+                trend = 'Decreasing ✓';
+                trendColor = '#10b981';
+            } else if (totalStrikes > 0) {
+                trend = 'Steady';
+                trendColor = '#fbbf24';
+            }
+
+            document.getElementById('statStrikes').textContent = totalStrikes;
+            document.getElementById('statStrikesSub').textContent = totalStrikes > 0 ? 'Last hour' : 'No activity detected';
+            
+            document.getElementById('statClosest').textContent = closest !== null ? closest + ' km' : '--';
+            document.getElementById('statClosestSub').textContent = closest !== null ? (closest < 10 ? '⚠️ Very close!' : 'Safe distance') : '--';
+            if (closest !== null) document.getElementById('statClosest').style.color = closest < 10 ? '#ef4444' : closest < 25 ? '#fbbf24' : '#10b981';
+            
+            document.getElementById('statIntensity').textContent = peakIntensity !== null ? peakIntensity + ' kA' : '--';
+            document.getElementById('statIntensitySub').textContent = peakIntensity !== null ? (peakIntensity > 80 ? 'High intensity' : 'Normal') : '--';
+            
+            document.getElementById('statTrend').textContent = trend;
+            document.getElementById('statTrend').style.color = trendColor;
+            document.getElementById('statTrendSub').textContent = 'Based on last 30 min';
+        }
+
+        function renderStormTracker(strikes) {
+            const container = document.getElementById('stormTracker');
+            
+            // Group strikes by approximate direction to simulate storm cells
+            const directions = ['NE', 'SE', 'SW', 'NW'];
+            const stormCells = [];
+            
+            directions.forEach(dir => {
+                const dirStrikes = strikes.filter(s => {
+                    const angle = Math.atan2(s.y, s.x) * 180 / Math.PI;
+                    if (dir === 'NE') return angle >= -45 && angle < 45;
+                    if (dir === 'SE') return angle >= 45 && angle < 135;
+                    if (dir === 'SW') return (angle >= 135 || angle < -135);
+                    return angle >= -135 && angle < -45;
+                });
+                
+                if (dirStrikes.length >= 2) {
+                    const avgDist = Math.round(dirStrikes.reduce((a, b) => a + b.distance, 0) / dirStrikes.length);
+                    const maxIntensity = Math.max(...dirStrikes.map(s => s.intensity));
+                    const isApproaching = avgDist < 20;
+                    const isNearby = avgDist < 35;
+                    
+                    stormCells.push({
+                        direction: dir,
+                        distance: avgDist,
+                        strikes: dirStrikes.length,
+                        intensity: maxIntensity,
+                        class: isApproaching ? 'approaching' : isNearby ? 'nearby' : 'distant'
+                    });
+                }
+            });
+            
+            if (stormCells.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">No active storm cells detected in the area. Conditions are calm.</div>';
+                return;
+            }
+            
+            container.innerHTML = stormCells.map(cell => {
+                const dirArrows = { 'NE': '↗️', 'SE': '↘️', 'SW': '↙️', 'NW': '↖️' };
+                return '<div class="storm-cell ' + cell.class + '">' +
+                    '<div class="storm-icon">⛈️</div>' +
+                    '<div class="storm-details">' +
+                    '<div class="storm-name">Storm Cell ' + cell.direction + '</div>' +
+                    '<div class="storm-meta">' + cell.strikes + ' strikes • ' + cell.distance + ' km away • ' + cell.intensity + ' kA peak</div>' +
+                    '</div>' +
+                    '<div class="storm-direction">' +
+                    '<div class="direction-arrow">' + dirArrows[cell.direction] + '</div>' +
+                    '<span>' + (cell.class === 'approaching' ? 'Approaching!' : cell.class === 'nearby' ? 'Nearby' : 'Distant') + '</span>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function renderStrikesList(strikes) {
+            const container = document.getElementById('strikesList');
+            
+            if (strikes.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">No lightning strikes recorded in the last hour.</div>';
+                return;
+            }
+            
+            container.innerHTML = strikes.slice(0, 10).map(strike => {
+                const timeAgo = Math.round((Date.now() - strike.time) / 60000);
+                const timeStr = timeAgo < 1 ? 'Just now' : timeAgo + ' min ago';
+                const intensityClass = strike.intensity > 80 ? 'high' : strike.intensity > 50 ? 'medium' : 'low';
+                
+                return '<div class="strike-item">' +
+                    '<div class="strike-dot ' + (strike.type === 'cloud-ground' ? 'cg' : 'cc') + '"></div>' +
+                    '<div class="strike-info">' +
+                    '<div class="strike-distance">' + strike.distance + ' km ' + (strike.type === 'cloud-ground' ? 'Cloud-to-Ground' : 'Cloud-to-Cloud') + '</div>' +
+                    '<div class="strike-time">' + timeStr + ' • ' + strike.intensity + ' kA</div>' +
+                    '</div>' +
+                    '<div class="strike-intensity ' + intensityClass + '">' + (strike.intensity > 80 ? 'HIGH' : strike.intensity > 50 ? 'MED' : 'LOW') + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function updateLightningStatus(strikes) {
+            const statusEl = document.getElementById('lightningStatus');
+            const closest = strikes.length > 0 ? Math.min(...strikes.map(s => s.distance)) : null;
+            
+            if (closest === null) {
+                statusEl.className = 'lightning-status safe';
+                statusEl.innerHTML = '<span class="live-dot"></span> No Storms Detected';
+            } else if (closest < 15) {
+                statusEl.className = 'lightning-status active';
+                statusEl.innerHTML = '<span class="live-dot" style="background:#ef4444;"></span> ⚠️ Storm Active Nearby!';
+            } else if (closest < 35) {
+                statusEl.className = 'lightning-status caution';
+                statusEl.innerHTML = '<span class="live-dot" style="background:#fbbf24;"></span> Storms Detected';
+            } else {
+                statusEl.className = 'lightning-status safe';
+                statusEl.innerHTML = '<span class="live-dot"></span> Distant Activity';
+            }
+        }
+
+        function startLightningSimulation() {
+            // Generate initial data
+            lightningStrikes = generateLightningData();
+            renderLightningRadar(lightningStrikes);
+            renderLightningStats(lightningStrikes);
+            renderStormTracker(lightningStrikes);
+            renderStrikesList(lightningStrikes);
+            updateLightningStatus(lightningStrikes);
+            
+            // Update every 30 seconds
+            if (lightningInterval) clearInterval(lightningInterval);
+            lightningInterval = setInterval(() => {
+                // Simulate new strikes appearing
+                const code = currentWeatherData?.current?.weather_code || 0;
+                const isStormy = code >= 95;
+                
+                if (isStormy || Math.random() > 0.7) {
+                    const newStrike = {
+                        id: Date.now(),
+                        x: (Math.random() - 0.5) * 240,
+                        y: (Math.random() - 0.5) * 240,
+                        distance: Math.round(Math.random() * 50 + 2),
+                        intensity: Math.round(Math.random() * 100 + 20),
+                        type: Math.random() > 0.3 ? 'cloud-ground' : 'cloud-cloud',
+                        isIntense: Math.random() > 0.7,
+                        time: new Date()
+                    };
+                    lightningStrikes.unshift(newStrike);
+                    if (lightningStrikes.length > 20) lightningStrikes.pop();
+                    
+                    renderLightningRadar(lightningStrikes);
+                    renderLightningStats(lightningStrikes);
+                    renderStormTracker(lightningStrikes);
+                    renderStrikesList(lightningStrikes);
+                    updateLightningStatus(lightningStrikes);
+                }
+            }, 30000);
+        }
+
+        function stopLightningSimulation() {
+            if (lightningInterval) {
+                clearInterval(lightningInterval);
+                lightningInterval = null;
+            }
+        }
+
+        // Main weather fetch
+        async function fetchWeather(lat, lon, cityName) {
+            showLoading();
+            try {
+                const weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,pressure_msl,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation_probability,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=7';
+                const weatherRes = await fetch(weatherUrl);
+                const weatherData = await weatherRes.json();
+
+                let aqiData = null;
+                try {
+                    const aqiUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon + '&current=us_aqi&timezone=auto';
+                    const aqiRes = await fetch(aqiUrl);
+                    aqiData = await aqiRes.json();
+                } catch (e) {}
+
+                currentWeatherData = { ...weatherData, cityName, aqi: aqiData };
+                updateUI(weatherData, aqiData, cityName);
+                hideLoading();
+                document.getElementById('weatherContent').style.display = 'block';
+            } catch (error) {
+                showError('Failed to fetch weather data.');
+            }
+        }
+
+        function updateUI(weather, aqi, cityName) {
+            const current = weather.current;
+            const daily = weather.daily;
+            const hourly = weather.hourly;
+
+            checkAlerts(current, daily);
+
+            document.getElementById('cityName').textContent = cityName;
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            const info = weatherCodes[current.weather_code] || { icon: '☀️', desc: 'Clear' };
+            document.getElementById('weatherIcon').textContent = info.icon;
+            document.getElementById('temperature').textContent = Math.round(current.temperature_2m) + '°C';
+            document.getElementById('weatherDesc').textContent = info.desc;
+
+            document.getElementById('windSpeed').textContent = current.wind_speed_10m + ' km/h';
+            document.getElementById('humidity').textContent = current.relative_humidity_2m + '%';
+            document.getElementById('feelsLike').textContent = Math.round(current.apparent_temperature) + '°C';
+            document.getElementById('pressure').textContent = Math.round(current.pressure_msl) + ' hPa';
+            document.getElementById('uvIndex').textContent = current.uv_index || '--';
+            document.getElementById('visibility').textContent = current.weather_code >= 45 ? 'Poor' : 'Good';
+
+            if (aqi && aqi.current) {
+                const val = aqi.current.us_aqi;
+                const label = val <= 50 ? 'Good' : val <= 100 ? 'Moderate' : val <= 150 ? 'Unhealthy for Sensitive' : val <= 200 ? 'Unhealthy' : 'Very Unhealthy';
+                const color = val <= 50 ? '#10b981' : val <= 100 ? '#f59e0b' : val <= 150 ? '#f97316' : '#ef4444';
+                document.getElementById('aqiValue').textContent = val;
+                document.getElementById('aqiValue').style.color = color;
+                document.getElementById('aqiLabel').textContent = label;
+            } else {
+                document.getElementById('aqiValue').textContent = '--';
+                document.getElementById('aqiLabel').textContent = 'Unavailable';
+            }
+
+            // Update all tabs
+            document.getElementById('outfitRecommendation').innerHTML = generateOutfitRecommendation(current, daily);
+            document.getElementById('bestTimes').innerHTML = generateBestTimes(current, daily, hourly);
+            document.getElementById('photoTimes').innerHTML = generatePhotoTimes(daily);
+            document.getElementById('sportsWeather').innerHTML = generateSportsWeather(current, daily);
+            document.getElementById('drivingConditions').innerHTML = generateDrivingConditions(current, daily);
+            document.getElementById('powerTips').innerHTML = generatePowerTips(current, daily);
+            document.getElementById('agricultureData').innerHTML = generateAgricultureData(current, daily, hourly);
+
+            createCharts(hourly);
+
+            const hourlyContainer = document.getElementById('hourlyForecast');
+            hourlyContainer.innerHTML = '';
+            const currentHour = new Date().getHours();
+            for (let i = 0; i < 24; i += 3) {
+                const idx = currentHour + i;
+                if (idx >= hourly.time.length) break;
+                const hourTime = new Date(hourly.time[idx]);
+                const hourInfo = weatherCodes[hourly.weather_code[idx]] || { icon: '☀️' };
+                const div = document.createElement('div');
+                div.className = 'hour-item';
+                div.innerHTML = '<div class="time">' + hourTime.getHours() + ':00</div><div class="icon">' + hourInfo.icon + '</div><div class="temp">' + Math.round(hourly.temperature_2m[idx]) + '°</div>';
+                hourlyContainer.appendChild(div);
+            }
+
+            const dailyContainer = document.getElementById('dailyForecast');
+            dailyContainer.innerHTML = '';
+            for (let i = 0; i < daily.time.length; i++) {
+                const dayName = i === 0 ? 'Today' : getDayName(daily.time[i]);
+                const dayInfo = weatherCodes[daily.weather_code[i]] || { icon: '☀️' };
+                const div = document.createElement('div');
+                div.className = 'daily-item';
+                div.innerHTML = '<span class="daily-day">' + dayName + '</span><span class="daily-icon">' + dayInfo.icon + '</span><div class="daily-temps"><span class="daily-low">' + Math.round(daily.temperature_2m_min[i]) + '°</span><span>/</span><span class="daily-high">' + Math.round(daily.temperature_2m_max[i]) + '°</span></div>';
+                dailyContainer.appendChild(div);
+            }
+        }
+
+        async function searchWeather() {
+            const city = document.getElementById('cityInput').value.trim();
+            if (!city) { showError('Please enter a city name'); return; }
+            try {
+                const res = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=1&language=en&format=json');
+                const data = await res.json();
+                if (!data.results || !data.results.length) { showError('City "' + city + '" not found'); return; }
+                const result = data.results[0];
+                await fetchWeather(result.latitude, result.longitude, result.name + (result.country ? ', ' + result.country : ''));
+            } catch (e) { showError('Search failed'); }
+        }
+
+        function getMyLocation() {
+            if (!navigator.geolocation) { showError('Geolocation not supported'); return; }
+            showLoading();
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    try {
+                        const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + latitude + '&longitude=' + longitude + '&localityLanguage=en');
+                        const data = await res.json();
+                        await fetchWeather(latitude, longitude, data.city || data.locality || 'Your Location');
+                    } catch (e) { await fetchWeather(latitude, longitude, 'Your Location'); }
+                },
+                () => { showError('Location access denied'); }
+            );
+        }
+
+        // Event listeners
+        document.getElementById('cityInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchWeather(); });
+        document.getElementById('chatInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+        // Initialize
+        initVoiceSearch();
+        fetchWeather(17.3850, 78.4867, 'Hyderabad, India');
+    </script>
+</body>
+</html>
